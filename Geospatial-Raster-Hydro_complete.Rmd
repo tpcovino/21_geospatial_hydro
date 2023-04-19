@@ -14,15 +14,13 @@ Install/Load necessary packages and data:
 library(tidyverse)
 library(raster)
 library(sf)
-#whitebox::install_whitebox()
-
 library(whitebox)
 library(tmap)
 library(viridis)
 library(mapview)
 
 #If installing/using whitebox for the first time
-
+#whitebox::install_whitebox()
 
 whitebox::wbt_init()
 
@@ -43,7 +41,7 @@ We will use raster() to load the DEM. We let R know that coordinate system is WG
 Next, an artifact of outputting the DEM for this analysis is that there are a bunch of errant cells around the border that don't belong in the DEM. If we make a map with them, it really throws off the scale. So we are going to set any elevation values below 1500 ft to NA. Note how this is done as if the dem was just a normal vector, which is pretty handy. 
 
 ```{r}
-tmap_mode("view") # view is interactive. map is static. 
+tmap_mode("plot") # view is interactive. map is static. 
 
 
 dem <- raster("McDonaldHollowDEM/brushDEMsm_5m.tif", crs = '+init=EPSG:4326')
@@ -68,13 +66,9 @@ Here is a link to different color palettes you can try
 <http://www.sthda.com/english/wiki/colors-in-r>
 
 ```{r}
- # can try viridis, spectral, and tmaptools::palette_explorer() for more color options
 tm_shape(dem) +
-  tm_raster(style = "cont", palette = "Spectral", legend.show = TRUE, title = "Elevation (m)") +
-  tm_scale_bar(breaks = c(0, 0.4, 0.8))
-
-
-tmaptools::palette_explorer()
+  tm_raster(style = "cont", palette = "viridis", legend.show = TRUE, title = "Elevation (m)") +
+  tm_scale_bar(breaks = c(0, 0.4, 0.8)) # can try viridis, spectral, and tmaptools::palette_explorer() for more color options
 ```
 
 ## Generate a hillshade
@@ -107,8 +101,8 @@ wbt_hillshade(dem = "McDonaldHollowDEM/brushDEMsm_5m_crs.tif",
 hillshade <- raster("McDonaldHollowDEM/brush_hillshade.tif")
 
 tm_shape(hillshade) +
-  tm_raster(style = "cont", palette = "-Greys", legend.show = FALSE) 
-
+  tm_raster(style = "cont", palette = "-Greys", legend.show = FALSE) +
+  tm_scale_bar()
 ```
 
 ## Prepare DEM for Hydrology Analyses
@@ -139,17 +133,15 @@ Be careful to give wbt_fill_depressions_wang_and_liu() the result of the breach 
 
 ```{r}
 wbt_breach_depressions_least_cost(
-  dem = "McDonaldHollowDEM/brushDEMsm_5m_crs.tif", 
+  dem = "McDonaldHollowDEM/brushDEMsm_5m_crs.tif",
   output = "McDonaldHollowDEM/bmstationdem_breached.tif",
-  dist = 5, 
-  fill = TRUE
-)
+  dist = 5,
+  fill = TRUE)
 
 wbt_fill_depressions_wang_and_liu(
-  dem = "McDonaldHollowDEM/bmstationdem_breached.tif", 
-  output = "McDonaldHollowDEM/bmstationdem_filled_breached.tif", 
+  dem = "McDonaldHollowDEM/bmstationdem_breached.tif",
+  output = "McDonaldHollowDEM/bmstationdem_filled_breached.tif"
 )
-
 ```
 
 ## Visualize filled sinks and breached depressions
@@ -167,20 +159,19 @@ What do you think these pit/depression features represent in real life?
 ```{r}
 filled_breached <- raster("McDonaldHollowDEM/bmstationdem_filled_breached.tif")
 
+## What did this do?
 difference <- dem - filled_breached
 
 difference[difference == 0] <- NA
 
-## What did this do?
-
-tm_shape(hillshade) +
-  tm_raster(style = "cont", palette = "Greys", legend.show = FALSE) +
-  tm_shape(difference) +
-  tm_raster(style = "cont", palette = "blue", legend.show = FALSE)
-
-
 # Try with and without the hillshade. 
+tm_shape(hillshade) +
+  tm_raster(style = "cont", palette = "-Greys", legend.show = FALSE)+
+  tm_scale_bar() 
 
+tm_shape(difference) +
+  tm_raster(style = "cont", palette = "blue", legend.show = TRUE) +
+  tm_scale_bar()
 
 ```
 
@@ -203,16 +194,16 @@ Where are the lowest values?
 Play with changing colors and alpha. What looks best? 
 
 ```{r}
-wbt_d8_flow_accumulation(input = "McDonaldHollowDEM/bmstationdem_filled_breached.tif", 
+wbt_d8_flow_accumulation(input = "McDonaldHollowDEM/bmstationdem_filled_breached.tif",
                          output = "McDonaldHollowDEM/D8FA.tif")
 
 d8 <- raster("McDonaldHollowDEM/D8FA.tif")
 
-tm_shape(hillshade) +
-  tm_raster(style = "cont", palette = "-Greys", legend.show = FALSE) +
-  tm_shape(log(d8)) +
-  tm_raster(style = "cont", palette = "GnBu", legend.show = FALSE, alpha = 0.35)  
-
+tm_shape(hillshade)+
+  tm_raster(style = "cont",palette = "-Greys", legend.show = FALSE)+
+tm_shape(log(d8))+
+  tm_raster(style = "cont", palette = "GnBu", legend.show = FALSE, alpha = 0.35) +
+  tm_scale_bar()
 
 ```
 
@@ -235,16 +226,17 @@ How does this look different from the D8 results?
 Which do you think represents reality better? Why?
 
 ```{r}
-wbt_d_inf_flow_accumulation(input = "McDonaldHollowDEM/bmstationdem_filled_breached.tif", 
-                         output = "McDonaldHollowDEM/DinfFA.tif")
+wbt_d_inf_flow_accumulation(input = "McDonaldHollowDEM/bmstationdem_filled_breached.tif",
+                         output = "McDonaldHollowDEM/DinfFA.tif", 
+                         out_type = "cells")
 
 dinf <- raster("McDonaldHollowDEM/DinfFA.tif")
 
 tm_shape(hillshade) +
-  tm_raster(style = "cont", palette = "-Greys", legend.show = FALSE) +
-  tm_shape(log(dinf)) +
-  tm_raster(style = "cont", palette = "GnBu", legend.show = FALSE, alpha = 0.35) 
-
+  tm_raster(style = "cont",palette = "-Greys", legend.show = FALSE) +
+tm_shape(log(dinf)) +
+  tm_raster(style = "cont", palette = "GnBu", legend.show = FALSE, alpha = 0.2) +
+  tm_scale_bar()
 ```
 
 ## Topographic Wetness Index
@@ -268,6 +260,7 @@ wbt_d_inf_flow_accumulation(input = "McDonaldHollowDEM/bmstationdem_filled_breac
                             output = "McDonaldHollowDEM/DinfFAsca.tif",
                             out_type = "Specific Contributing Area")
 
+
 wbt_slope(dem = "McDonaldHollowDEM/bmstationdem_filled_breached.tif",
           output = "McDonaldHollowDEM/demslope.tif",
           units = "degrees")
@@ -278,11 +271,14 @@ wbt_wetness_index(sca = "McDonaldHollowDEM/DinfFAsca.tif",
 
 twi <- raster("McDonaldHollowDEM/TWI.tif")
 
+twi[twi > 0] <- NA
 
 tm_shape(hillshade) +
-           tm_raster(style = "cont", palette = "-Greys", legend.show = FALSE) + 
-           tm_shape(twi) +
-           tm_raster(style = "cont", palette = "GnBu", legend.show = FALSE, alpha = 0.5)
+  tm_raster(style = "cont", palette = "-Greys", legend.show = FALSE) +
+tm_shape(twi) +
+  tm_raster(style = "cont", palette = "GnBu", legend.show = FALSE, alpha = 0.5) +
+  tm_scale_bar()
+
 ```
 
 
@@ -299,18 +295,24 @@ Then wbt_raster_streams_to_vector() will take the output from wbt_extract_stream
 Below we extract the streams, generate a D8 pointer file, and then convert the raster streams to vector. We will then plot the streams on the hillshade.
 
 ```{r}
-wbt_extract_streams(flow_accum = "McDonaldHollowDEM/D8FA.tif", 
-                    output = "McDonaldHollowDEM/raster_streams.tif", 
+wbt_extract_streams(flow_accum = "McDonaldHollowDEM/D8FA.tif",
+                    output = "McDonaldHollowDEM/raster_streams.tif",
                     threshold = 6000)
 
 wbt_d8_pointer(dem = "McDonaldHollowDEM/bmstationdem_filled_breached.tif",
-               output = "McDonaldHOllowDEM/D8pointer.tif")
+               output = "McDonaldHollowDEM/D8pointer.tif")
 
-wbt_raster_streams_to_vector(streams = "McDonaldHollowDEM/raster_streams.tif", 
-                            d8_pntr = "McDonaldHollowDEM/D8pointer.tif", 
-                            output = "McDonaldHollowDEM/streams.shp")
+wbt_raster_streams_to_vector(streams = "McDonaldHollowDEM/raster_streams.tif",
+                             d8_pntr = "McDonaldHollowDEM/D8pointer.tif",
+                             output = "McDonaldHollowDEM/streams.shp")
 
 streams <- st_read("McDonaldHollowDEM/streams.shp")
+
+tm_shape(hillshade)+
+  tm_raster(style = "cont",palette = "-Greys", legend.show = FALSE) +
+tm_shape(streams)+
+  tm_lines(col = "blue", lwd = 3) +
+  tm_scale_bar()
 ```
 
 ## Extract raster values to point locations
@@ -326,11 +328,18 @@ Then we have to convert it to a spatial datatype. We will use SpatialPoints() to
 Then we will plot the points just to make sure they show up where we expect.
 
 ```{r}
-tm_shape(hillshade) +
-  tm_raster(style = "cont", palette = "-Greys", legend.show = FALSE) +
-  tm_shape(streams) +
-  tm_lines(col = "blue", lwd = 1.5)
+points <- read_csv("McDonaldHollowDEM/points.csv")
 
+pointsSP <- SpatialPoints(points, proj4string = CRS("+proj=longlat +datum=WGS84"))
+
+
+tmap_mode("plot")
+
+tm_shape(twi)+
+  tm_raster(style = "cont", palette = "Spectral", legend.show = FALSE) +
+  tm_scale_bar()+
+tm_shape(pointsSP)+
+  tm_dots(col = "red", size = 0.3)
 
 ```
 
@@ -341,8 +350,13 @@ We can extract values from any raster using the extract() function in the raster
 This function just spits out a vector of values disconnected from our points, so next we will add the column to our existing points object. NOT the geospatial one, just the dataframe/tibble.
 
 ```{r}
+twi_vals <-  raster::extract(x = twi, #raster 
+                 y = pointsSP, #points
+                 method = "simple")
 
+points$twi <- twi_vals
 
+points
 ```
 
 ### Extract values from multiple rasters at once
@@ -356,9 +370,19 @@ Then: use the same exact syntax as when we extracted values from a single raster
 We can then use cbind() to slap the extracted data onto our existing dataframe (NOT the spatial one, just the original regular one)
 
 ```{r}
+slope <- raster("McDonaldHollowDEM/demslope.tif")
+
+raster_stack <- stack(dinf, slope, twi)
 
 
 
+raster_values <- raster::extract(x = raster_stack, #raster 
+                 y = pointsSP, #points
+                 method = "simple")
+
+points <- cbind(points, raster_values)
+
+points
 
 ```
 
@@ -371,8 +395,10 @@ We will use as.data.frame to convert our slope raster to a data frame and then p
 It would be very difficult to accurately describe the differences in slope between two areas by looking at a map of the values, but this way we can do it quite effectively.
 
 ```{r}
+slopedf <- as.data.frame(slope)
 
-
+ggplot(slopedf, aes(demslope)) +
+  stat_density()
 ```
 
 ## Subsetting a raster for visualization
@@ -382,8 +408,12 @@ Similar to how we set junk values to NA earlier in this activity, we can also us
 At it's heart this is a reclassification. You could use the same strategy to classify slopes into bins. For example, make slopes from 0 - 60 percent equal to 1, for low slope, and then > 60 equal to 2 for high slope... or any number of bins. This can be really useful for finding locations that satisfy a several criteria. Think: where might we find the right habitat for a certain plant species? Or where might we want to do some post-fire restoration? Or riparian restoration? Etc. 
 
 ```{r}
+slope2 <- slope
+slope2[slope2 < 60] <- NA
 
-
+tm_shape(slope2)+
+  tm_raster(style = "cont", palette = "PuOr", legend.show = TRUE)+
+  tm_scale_bar()
 
 ```
 
@@ -396,8 +426,11 @@ If you've made model that predicts the likelihood of the location of something, 
 Here's a super simple example to just illustrate that you can do this: we will just divide slope by the elevation (dem)
 
 ```{r}
+demXslope <- slope / dem
 
-
+tm_shape(demXslope)+
+  tm_raster(style = "cont", palette = "PuOr", legend.show = TRUE)+
+  tm_scale_bar()
 ```
 
 ## Plot topo characteristics against one another
@@ -405,8 +438,15 @@ Here's a super simple example to just illustrate that you can do this: we will j
 Here we convert slope and elevation each to a dataframe, join them, and them plot a 2 dimensional density plot. 
 
 ```{r}
+slopedf <- as.data.frame(slope)
+elevdf <- as.data.frame(dem)
 
+slopeelev <- cbind(slopedf, elevdf)
 
+ggplot(slopeelev, aes(x = demslope, y = brushDEMsm_5m))+
+  geom_density_2d_filled()+
+  ylab("Elevation (ft)")+
+  xlab("Slope (%)")
 
 ```
 
