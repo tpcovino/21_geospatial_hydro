@@ -81,7 +81,7 @@ We will use the whitebox tools function wbt_hillshade() to produce a hillshade.
 
 The whitebox tools functions can be a little tricky to work with at first. You might want to pass R objects to them and get R objects back, but that's not how they are set up. 
 
-Basically for your input, you well the wbt function the name of the file that has the input data.\
+Basically for your input, you tell the wbt function the name of the file that has the input data.\
 For output, you tell it what to name the output. 
 
 The wbt function then outputs the calculated data to your working directory, or whatever directory you give it in the output argument. 
@@ -125,7 +125,7 @@ The second way we can deal with these features is to "breach" them. This means t
 
 We are going to do both to prep our DEM. We will first breach depressions using wbt_breach_depressions_least_cost(), which will lower the elevation of the cells damming depressions.
 
-To use this function we will also give it a maximum distance to search for a place to breach the depression (dist) and tell with whether to fill any depressions leftover after it does its thing (fill).
+To use this function we will also give it a maximum distance to search for a place to breach the depression (dist) and determine whether to fill any depressions leftover after it does its thing (fill).
 
 Then, because this algorithm can leave some remaining depressions, we will use wbt_fill_depressions_wang_and_liu() to clean up any remaining issues. 
 
@@ -428,8 +428,8 @@ Here's a super simple example to just illustrate that you can do this: we will j
 ```{r}
 demXslope <- slope / dem
 
-tm_shape(demXslope)+
-  tm_raster(style = "cont", palette = "PuOr", legend.show = TRUE)+
+tm_shape(demXslope) +
+  tm_raster(style = "cont", palette = "PuOr", legend.show = TRUE) +
   tm_scale_bar()
 ```
 
@@ -443,9 +443,9 @@ elevdf <- as.data.frame(dem)
 
 slopeelev <- cbind(slopedf, elevdf)
 
-ggplot(slopeelev, aes(x = demslope, y = brushDEMsm_5m))+
-  geom_density_2d_filled()+
-  ylab("Elevation (ft)")+
+ggplot(slopeelev, aes(x = demslope, y = brushDEMsm_5m)) +
+  geom_density_2d_filled() +
+  ylab("Elevation (ft)") +
   xlab("Slope (%)")
 
 ```
